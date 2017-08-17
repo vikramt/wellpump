@@ -6,6 +6,8 @@ be used with analogWrite().
 */
 #include <Arduino.h>
 #include <EmonLiteESP.h>
+#include <PubSubClient.h>
+#include <ESP8266WiFi.h>
 
 #define LED     D0        // Led in NodeMCU at pin GPIO16 (D0).
 
