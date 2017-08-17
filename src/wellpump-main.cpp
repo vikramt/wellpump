@@ -29,7 +29,7 @@ void setup() {
   pinMode(LED, OUTPUT);   // LED pin as output.
   Serial.begin(9600);
 }
-int adcvalue;
+
 //----- Loop routine. --------------------------
 void loop() {
   //ramp increasing intensity, Inhalation:
