@@ -27,10 +27,7 @@ be used with analogWrite().
 #define MAINS_VOLTAGE  230
 
 // MQTT server definitions
-#define mqtturl io.adafruit.com
-#define mqttusername viktaraf
-#define mqttkey aec055e3559542aa94fbb217e3e45840
-#define mqtttopic firstone
+
 
 // Number of samples each time you measure
 #define SAMPLES_X_MEASUREMENT   1000
@@ -38,11 +35,11 @@ be used with analogWrite().
 #define MEASUREMENT_INTERVAL    10000
 
 //wifi and mqtt connections
-const char* ssid = "toods";
-const char* password = "forest2home";
-const char* mqtt_server = "52.5.238.97";
-const char* mqtt_port = "1883";
-const char* mqtt_url = "/viktaraf/f/firstone/";
+const char* ssid = "Tree";
+const char* password = "44445555";
+const char* mqtt_server = "mqtt.thingspeak.com";
+const char* mqtt_url = "";
+
 
 //Instantiate the wifi client and mqtt client
 //-----------------------------------------
@@ -116,12 +113,12 @@ void reconnect() {
     String clientId = "WellSensor-";
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
-    if (client.connect("WellSensor-1", "viktaraf", "aec055e3559542aa94fbb217e3e45840")) {
+    if (client.connect("WellSensor-1")) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("/viktaraf/f/firstone/", "00");
+      client.publish("channels/318946/publish/fields/field1/IAXNOEILYAHCCOIK/", "3");
       // ... and resubscribe
-      client.subscribe("inTopic");
+      //client.subscribe("inTopic");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -157,7 +154,7 @@ void setup() {
   pinMode(LED, OUTPUT);   // LED pin as output.
   Serial.begin(9600);
   setup_wifi();
-  client.setServer("io.adafruit.com", 1883);
+  client.setServer("mqtt.thingspeak.com", 1883);
   client.setCallback(cbMqttRcvd);
 }
 
@@ -172,13 +169,13 @@ void loop() {
 
   powerMonitorLoop();
   long now = millis();
-  if (now - lastMsg > 2000) {
+  if (now - lastMsg > 20000) {
     lastMsg = now;
     ++value;
     snprintf (msg, 75, "%ld", value);
     Serial.print("Publish message: ");
     Serial.println(msg);
-    client.publish("/viktaraf/f/firstone/", msg);
+    client.publish("channels/318946/publish/fields/field1/IAXNOEILYAHCCOIK/", msg);
   }
   delay(1);
 
