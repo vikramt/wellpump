@@ -1,4 +1,4 @@
-/*LED_Breathing.ino Arduining.com  20 AUG 2015
+/* 
 Using NodeMCU Development Kit V1.0
 Going beyond Blink sketch to see the blue LED breathing.
 A PWM modulation is made in software because GPIO16 can't
