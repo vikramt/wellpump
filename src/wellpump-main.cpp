@@ -1,4 +1,4 @@
-/* 
+/*
 Using NodeMCU Development Kit V1.0
 Going beyond Blink sketch to see the blue LED breathing.
 A PWM modulation is made in software because GPIO16 can't
@@ -32,14 +32,14 @@ be used with analogWrite().
 // Number of samples each time you measure
 #define SAMPLES_X_MEASUREMENT   1000
 // Time between readings, this is not specific of the library but on this sketch
-#define MEASUREMENT_INTERVAL    10000
+#define MEASUREMENT_INTERVAL    1000
 
 //wifi and mqtt connections
 const char* ssid = "toods";
 const char* password = "forest2home";
 //const char* mqtt_server = "mqtt.thingspeak.com";
-//const char* mqtt_server = "10.1.1.4";
-const char* mqtt_url = "";
+const char* mqtt_server = "10.1.1.4";
+const char* mqtt_channel = "Sensor/wellsensor/current";
 
 
 //Instantiate the wifi client and mqtt client
@@ -57,6 +57,9 @@ unsigned int currentCallback() {
     return analogRead(A0);
 }
 
+//global current variable
+double I;
+long milliamps;
 
 // Startup wifi network connection
 //----------------------
@@ -117,7 +120,7 @@ void reconnect() {
     if (client.connect("WellSensor-1","wellpump","unset")) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("channels", "3");
+      client.publish(mqtt_server, "connected");
       // ... and resubscribe
       //client.subscribe("inTopic");
     } else {
@@ -138,11 +141,12 @@ void powerMonitorLoop() {
 
     if ((millis() - last_check) > MEASUREMENT_INTERVAL) {
 
-        double current = power.getCurrent(SAMPLES_X_MEASUREMENT);
+        //double current = power.getCurrent(SAMPLES_X_MEASUREMENT);
+        I = power.getCurrent(SAMPLES_X_MEASUREMENT);
 
-        Serial.print(F("[ENERGY] Power now: "));
-        Serial.print(int(current * MAINS_VOLTAGE));
-        Serial.println(F("W"));
+        Serial.print(F("[ENERGY] Current now: "));
+        Serial.print(int(I * 100));
+        Serial.println(F("milliamps/10"));
 
         last_check = millis();
 
@@ -155,7 +159,7 @@ void setup() {
   pinMode(LED, OUTPUT);   // LED pin as output.
   Serial.begin(9600);
   setup_wifi();
-  client.setServer("10.1.1.4", 1883);
+  client.setServer(mqtt_server, 1883);
   client.setCallback(cbMqttRcvd);
 }
 
@@ -169,14 +173,18 @@ void loop() {
   client.loop();
 
   powerMonitorLoop();
+  //convert I into milliamps cast into integer
+  milliamps=I*1000;
+  
   long now = millis();
-  if (now - lastMsg > 20000) {
+  if (now - lastMsg > MEASUREMENT_INTERVAL) {
     lastMsg = now;
-    ++value;
-    snprintf (msg, 75, "%ld", value);
+
+
+    snprintf (msg, 75, "%ld", milliamps);
     Serial.print("Publish message: ");
     Serial.println(msg);
-    client.publish("channels", msg);
+    client.publish(mqtt_channel, msg);
   }
   delay(1);
 
