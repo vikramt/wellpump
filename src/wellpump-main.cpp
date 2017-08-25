@@ -35,9 +35,10 @@ be used with analogWrite().
 #define MEASUREMENT_INTERVAL    10000
 
 //wifi and mqtt connections
-const char* ssid = "Tree";
-const char* password = "44445555";
-const char* mqtt_server = "mqtt.thingspeak.com";
+const char* ssid = "toods";
+const char* password = "forest2home";
+//const char* mqtt_server = "mqtt.thingspeak.com";
+//const char* mqtt_server = "10.1.1.4";
 const char* mqtt_url = "";
 
 
@@ -113,10 +114,10 @@ void reconnect() {
     String clientId = "WellSensor-";
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
-    if (client.connect("WellSensor-1")) {
+    if (client.connect("WellSensor-1","wellpump","unset")) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("channels/318946/publish/fields/field1/IAXNOEILYAHCCOIK/", "3");
+      client.publish("channels", "3");
       // ... and resubscribe
       //client.subscribe("inTopic");
     } else {
@@ -154,7 +155,7 @@ void setup() {
   pinMode(LED, OUTPUT);   // LED pin as output.
   Serial.begin(9600);
   setup_wifi();
-  client.setServer("mqtt.thingspeak.com", 1883);
+  client.setServer("10.1.1.4", 1883);
   client.setCallback(cbMqttRcvd);
 }
 
@@ -175,7 +176,7 @@ void loop() {
     snprintf (msg, 75, "%ld", value);
     Serial.print("Publish message: ");
     Serial.println(msg);
-    client.publish("channels/318946/publish/fields/field1/IAXNOEILYAHCCOIK/", msg);
+    client.publish("channels", msg);
   }
   delay(1);
 
