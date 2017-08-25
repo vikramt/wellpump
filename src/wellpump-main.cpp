@@ -31,15 +31,19 @@ be used with analogWrite().
 
 // Number of samples each time you measure
 #define SAMPLES_X_MEASUREMENT   1000
-// Time between readings, this is not specific of the library but on this sketch
-#define MEASUREMENT_INTERVAL    1000
+// Time between readings, makign this under 1second main loop is about 1 sec
+#define MEASUREMENT_INTERVAL    800
 
 //wifi and mqtt connections
-const char* ssid = "toods";
-const char* password = "forest2home";
+//const char* ssid = "toods";
+//const char* password = "forest2home";
+const char* ssid = "Tree";
+const char* password = "44445555";
 //const char* mqtt_server = "mqtt.thingspeak.com";
 const char* mqtt_server = "10.1.1.4";
-const char* mqtt_channel = "Sensor/wellsensor/current";
+const char* mqtt_ch_current = "Sensor/wellsensor/current";
+const char* mqtt_ch_temp = "Sensor/wellsensor/temperature";
+const char* mqtt_ch_humi = "Sensor/wellsensor/humidity";
 
 
 //Instantiate the wifi client and mqtt client
@@ -57,9 +61,12 @@ unsigned int currentCallback() {
     return analogRead(A0);
 }
 
-//global current variable
+//global sensors variable
 double I;
 long milliamps;
+long temperature;
+long humidity;
+
 
 // Startup wifi network connection
 //----------------------
@@ -145,27 +152,47 @@ void powerMonitorLoop() {
         I = power.getCurrent(SAMPLES_X_MEASUREMENT);
 
         Serial.print(F("[ENERGY] Current now: "));
-        Serial.print(int(I * 100));
-        Serial.println(F("milliamps/10"));
+        Serial.print(long(I * 1000));
+        Serial.println(F("milliamps"));
 
         last_check = millis();
 
     }
   }
 
+void get_temperature_humidity() {
+  ;
+}
+
 //----- Setup function. ------------------------
 void setup() {
+
+  int i = 0; // counter for wasting readings
+  int j = 100 ; // how many to waste
   power.initCurrent(currentCallback, ADC_BITS, REFERENCE_VOLTAGE, CURRENT_RATIO);
   pinMode(LED, OUTPUT);   // LED pin as output.
   Serial.begin(9600);
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(cbMqttRcvd);
+
+  //Waste first 100 readings and wait for current to turn on
+  Serial.println("Calibrating DC on sensor  ");
+  while (i < j ) {
+    powerMonitorLoop();
+    Serial.print(":");Serial.print((String)I);
+    delay(1000);
+  }
+
 }
 
 
 //----- Loop routine. --------------------------
 void loop() {
+
+  // This is for counting the loops in 1 sec intervals
+  static unsigned long loopcounter=0;
+
 
   if (!client.connected()) {
     reconnect();
@@ -175,7 +202,7 @@ void loop() {
   powerMonitorLoop();
   //convert I into milliamps cast into integer
   milliamps=I*1000;
-  
+
   long now = millis();
   if (now - lastMsg > MEASUREMENT_INTERVAL) {
     lastMsg = now;
@@ -184,7 +211,7 @@ void loop() {
     snprintf (msg, 75, "%ld", milliamps);
     Serial.print("Publish message: ");
     Serial.println(msg);
-    client.publish(mqtt_channel, msg);
+    client.publish(mqtt_ch_current, msg);
   }
   delay(1);
 
