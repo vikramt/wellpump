@@ -9,6 +9,7 @@ be used with analogWrite().
 #include <EmonLiteESP.h>
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
+#include <EEPROM.h>
 
 #define LED     D0        // Led in NodeMCU at pin GPIO16 (D0).
 
@@ -176,6 +177,7 @@ void setup() {
   int j = 70 ; // how many to waste
   power.initCurrent(currentCallback, ADC_BITS, REFERENCE_VOLTAGE, CURRENT_RATIO);
   pinMode(LED, OUTPUT);   // LED pin as output.
+  EEPROM.begin(512);
   Serial.begin(9600);
   setup_wifi();
   client.setServer(mqtt_server, 1883);
