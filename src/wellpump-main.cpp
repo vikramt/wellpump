@@ -33,6 +33,8 @@ be used with analogWrite().
 #define SAMPLES_X_MEASUREMENT   1000
 // Time between power readings, makign this under 1second main loop is about 1 sec
 #define MEASUREMENT_INTERVAL    700
+//send a publish every so often
+#define MIN_PUBLISH_SEC 300
 
 //wifi and mqtt connections
 //const char* ssid = "toods";
@@ -195,7 +197,7 @@ void setup() {
 void loop() {
 
   // This is for counting the loops in 1 sec intervals
-  static unsigned int loopcounter=0;
+  static unsigned int loopcounter=MIN_PUBLISH_SEC;
   static unsigned int wakeup=1;
   static unsigned int publish_current=0;
   static unsigned long current_on=0;
@@ -203,7 +205,7 @@ void loop() {
 
   //read temperature and humidity every loop in global vars
   get_temperature_humidity();
-
+  loopcounter++;
   //read power and convert I into milliamps cast into integer every loop
   powerMonitorLoop();
   milliamps=I*1000;
@@ -221,7 +223,7 @@ void loop() {
 
   }
 
-  if( loopcounter >300  ) {
+  if( loopcounter >MIN_PUBLISH_SEC  ) {
     wakeup=1;
     loopcounter=0;
   }
