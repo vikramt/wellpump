@@ -37,8 +37,8 @@ be used with analogWrite().
 //wifi and mqtt connections
 //const char* ssid = "toods";
 //const char* password = "forest2home";
-const char* ssid = "Tree";
-const char* password = "44445555";
+const char* ssid = "toods";
+const char* password = "forest2home";
 //const char* mqtt_server = "mqtt.thingspeak.com";
 const char* mqtt_server = "10.1.1.4";
 const char* mqtt_user = "wellpump";
@@ -182,9 +182,10 @@ void setup() {
   //Waste first 100 readings and wait for current to turn on
   Serial.println("Calibrating DC on sensor  ");
   while (i < j ) {
+    i++;
     powerMonitorLoop();
     Serial.print(":");Serial.print((String)I);
-    delay(1000);
+    delay(900);
   }
 
 }
@@ -207,13 +208,17 @@ void loop() {
   powerMonitorLoop();
   milliamps=I*1000;
   //count how long current is on if its greater than 2 amps and what the max is
-  if ( milliamps > 2000 ){
+  if ( milliamps > 1000 ){
     current_on++; // current on time in seconds
     if ( milliamps > max_current_ma ) {
       max_current_ma = milliamps;
     }
   } else {
-    publish_current=1;
+    if ( current_on) {
+      publish_current=1;
+
+    }
+
   }
 
   if( loopcounter >300  ) {
@@ -233,6 +238,7 @@ void loop() {
       Serial.print("Publish message: ");
       Serial.println(msg);
       client.publish(mqtt_ch_current, msg);
+      current_on=0;
       publish_current=0;
       max_current_ma=0;
     }
