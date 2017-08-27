@@ -10,6 +10,7 @@ be used with analogWrite().
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
 #include <EEPROM.h>
+#include <SimpleDHT.h>
 
 #define LED     D0        // Led in NodeMCU at pin GPIO16 (D0).
 
@@ -37,6 +38,12 @@ be used with analogWrite().
 //send a publish every so often
 #define MIN_PUBLISH_SEC 300
 
+// DHT11 settings and instantiate the sensor
+int pinDHT11 = D3;
+SimpleDHT11 dht11;
+
+
+
 //wifi and mqtt connections
 //const char* ssid = "toods";
 //const char* password = "forest2home";
@@ -48,6 +55,7 @@ const char* mqtt_user = "wellpump";
 const char* mqtt_password = "unset";
 const char* mqtt_ch_current = "Sensor/wellsensor/current";
 const char* mqtt_ch_temp_humi = "Sensor/wellsensor/temp_humi";
+
 
 
 
@@ -69,8 +77,8 @@ unsigned int currentCallback() {
 //global sensors variable
 double I;
 long milliamps;
-long temperature;
-long humidity;
+byte temperature=254;
+byte humidity=254;
 
 
 // Startup wifi network connection
@@ -145,6 +153,17 @@ void reconnect() {
   }
 }
 
+
+// read the dht11
+void get_temperature_humidity() {
+  int err = SimpleDHTErrSuccess;
+  if ((err = dht11.read(pinDHT11, &temperature, &humidity, NULL)) != SimpleDHTErrSuccess) {
+    Serial.print("Read DHT11 failed, err="); Serial.println(err);delay(100);
+    temperature=254;humidity=254;
+
+  }
+}
+
 // This just does one reading of power-------------------
 //
 void powerMonitorLoop() {
@@ -165,16 +184,13 @@ void powerMonitorLoop() {
     }
   }
 
-void get_temperature_humidity() {
-  temperature=12;
-  humidity=30;
-}
+
 
 //----- Setup function. ------------------------
 void setup() {
 
   int i = 0; // counter for wasting readings
-  int j = 70 ; // how many to waste
+  int j = 20 ; // how many to waste
   power.initCurrent(currentCallback, ADC_BITS, REFERENCE_VOLTAGE, CURRENT_RATIO);
   pinMode(LED, OUTPUT);   // LED pin as output.
   EEPROM.begin(512);
@@ -184,10 +200,14 @@ void setup() {
   client.setCallback(cbMqttRcvd);
 
   //Waste first 100 readings and wait for current to turn on
-  Serial.println("Calibrating DC on sensor  ");
+  Serial.println("Calibrating  DC offset and  sensors  ");
   while (i < j ) {
     i++;
     powerMonitorLoop();
+    //every other time also read dht11
+    if ( (i & 0x01) == 0) {
+      get_temperature_humidity();
+    }
     Serial.print(":");Serial.print((String)I);
     delay(900);
   }
