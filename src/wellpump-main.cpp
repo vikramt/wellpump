@@ -5,6 +5,7 @@ A PWM modulation is made in software because GPIO16 can't
 be used with analogWrite().
 */
 
+#include <FS.h>
 #include <Arduino.h>
 #include <EmonLiteESP.h>
 #include <PubSubClient.h>
@@ -14,6 +15,7 @@ be used with analogWrite().
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <EEPROM.h>
 #include <SimpleDHT.h>
+#include <ArduinoJson.h>
 
 #define LED     D0        // Led in NodeMCU at pin GPIO16 (D0).
 
@@ -48,16 +50,14 @@ SimpleDHT11 dht11;
 
 
 //wifi and mqtt connections
-//const char* ssid = "toods";
-//const char* password = "forest2home";
-const char* ssid = "toods";
-const char* password = "forest2home";
+const char* ssid = "Tree";
+const char* wifipassword = "44445555";
 //const char* mqtt_server = "mqtt.thingspeak.com";
 const char* mqtt_server = "10.1.1.4";
 const char* mqtt_user = "wellpump";
 const char* mqtt_password = "unset";
-const char* mqtt_ch_current = "Sensor/wellsensor/current";
-const char* mqtt_ch_temp_humi = "Sensor/wellsensor/temp_humi";
+const char* mqtt_topic_current = "Sensor/wellsensor/current";
+const char* mqtt_topic_temp_humi = "Sensor/wellsensor/temp_humi";
 
 
 
@@ -93,7 +93,7 @@ void setup_wifi() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
 
-  WiFi.begin(ssid, password);
+  WiFi.begin(ssid, wifipassword);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -137,10 +137,10 @@ void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Create a random client ID
-    String clientId = "WellSensor-";
+    String clientId = "WellSensor";
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
-    if (client.connect("WellSensor-1",mqtt_user,mqtt_password)) {
+    if (client.connect("WellSensor",mqtt_user,mqtt_password)) {
       Serial.println("connected");
       // Once connected, publish an announcement...
       client.publish(mqtt_server, "connected");
@@ -264,7 +264,7 @@ void loop() {
       snprintf (msg, 75, "On:%ld Maxma:%ld", current_on,max_current_ma);
       Serial.print("Publish message: ");
       Serial.println(msg);
-      client.publish(mqtt_ch_current, msg);
+      client.publish(mqtt_topic_current, msg);
       current_on=0;
       publish_current=0;
       max_current_ma=0;
@@ -274,7 +274,7 @@ void loop() {
       snprintf (msg, 75, "T:%ld H:%ld", temperature,humidity);
       Serial.print("Publish message: ");
       Serial.println(msg);
-      client.publish(mqtt_ch_temp_humi, msg);
+      client.publish(mqtt_topic_temp_humi, msg);
       wakeup=0;
       temperature=0;humidity=0;
     }
