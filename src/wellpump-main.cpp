@@ -50,16 +50,31 @@ SimpleDHT11 dht11;
 
 
 //wifi and mqtt connections
-const char* ssid = "Tree";
-const char* wifipassword = "44445555";
+const char* ssid = "";
+const char* wifipassword = "";
 //const char* mqtt_server = "mqtt.thingspeak.com";
-const char* mqtt_server = "10.1.1.4";
-const char* mqtt_user = "wellpump";
-const char* mqtt_password = "unset";
-const char* mqtt_topic_current = "Sensor/wellsensor/current";
-const char* mqtt_topic_temp_humi = "Sensor/wellsensor/temp_humi";
+//const char* mqtt_server = "10.1.1.4";
+char mqtt_server[20] = "";
+char mqtt_port[8] = "1883";
+//const char* mqtt_user = "wellpump";
+char mqtt_user[20]="wellpump";
+//const char* mqtt_password = "unset";
+char mqtt_password[20] = "";
+//const char* mqtt_topic_current = "Sensor/wellsensor/current";
+char mqtt_topic_current[40] = "Sensor/wellsensor/current";
+//const char* mqtt_topic_temp_humi = "Sensor/wellsensor/temp_humi";
+char mqtt_topic_temp_humi[40] = "Sensor/wellsensor/temp_humi";
 
 
+// WifiManager stuff
+//
+//flag for saving data
+bool shouldSaveConfig = false;
+//callback notifying us of the need to save config
+void saveConfigCallback () {
+  Serial.println("Should save config");
+  shouldSaveConfig = true;
+}
 
 
 //Instantiate the wifi client and mqtt client
@@ -140,6 +155,7 @@ void reconnect() {
     String clientId = "WellSensor";
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
+
     if (client.connect("WellSensor",mqtt_user,mqtt_password)) {
       Serial.println("connected");
       // Once connected, publish an announcement...
@@ -178,9 +194,9 @@ void powerMonitorLoop() {
         //double current = power.getCurrent(SAMPLES_X_MEASUREMENT);
         I = power.getCurrent(SAMPLES_X_MEASUREMENT);
 
-        Serial.print(F("[ENERGY] Current now: "));
-        Serial.print(long(I * 1000));
-        Serial.println(F("milliamps"));
+        // Serial.print(F("[ENERGY] Current now: "));
+        // Serial.print(long(I * 1000));
+        // Serial.println(F("milliamps"));
 
         last_check = millis();
 
@@ -198,7 +214,139 @@ void setup() {
   pinMode(LED, OUTPUT);   // LED pin as output.
   EEPROM.begin(512);
   Serial.begin(9600);
-  setup_wifi();
+
+
+  //clean FS, for testing
+  //SPIFFS.format();
+  //read configuration from FS json
+  Serial.println("mounting FS...");
+
+  if (SPIFFS.begin()) {
+    Serial.println("mounted file system");
+    if (SPIFFS.exists("/config.json")) {
+      //file exists, reading and loading
+      Serial.println("reading config file");
+      File configFile = SPIFFS.open("/config.json", "r");
+      if (configFile) {
+        Serial.println("opened config file");
+        size_t size = configFile.size();
+        // Allocate a buffer to store contents of the file.
+        std::unique_ptr<char[]> buf(new char[size]);
+
+        configFile.readBytes(buf.get(), size);
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject& json = jsonBuffer.parseObject(buf.get());
+        json.printTo(Serial);
+        if (json.success()) {
+          Serial.println("\nparsed json");
+
+          strcpy(mqtt_server, json["mqtt_server"]);
+          strcpy(mqtt_port, json["mqtt_port"]);
+          strcpy(mqtt_user, json["mqtt_user"]);
+          strcpy(mqtt_password, json["mqtt_password"]);
+          strcpy(mqtt_topic_current, json["mqtt_topic_current"]);
+          strcpy(mqtt_topic_temp_humi, json["mqtt_topic_temp_humi"]);
+
+
+        } else {
+          Serial.println("failed to load json config");
+        }
+      }
+    }
+  } else {
+    Serial.println("failed to mount FS");
+  }
+  //end read
+
+  // The extra parameters to be configured (can be either global or just in the setup)
+  // After connecting, parameter.getValue() will get you the configured value
+  // id/name placeholder/prompt default length
+  WiFiManagerParameter custom_mqtt_server("server", "enter mqtt server ip", mqtt_server, 20, "use ip address");
+  WiFiManagerParameter custom_mqtt_port("port", "mqtt port", mqtt_port, 8);
+  WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqtt_user, 20);
+  WiFiManagerParameter custom_mqtt_password("password", "enter mqtt password", mqtt_password, 20);
+  WiFiManagerParameter custom_mqtt_topic_current("current", "topic Sensor/wellpump/current", mqtt_topic_current, 40);
+  WiFiManagerParameter custom_mqtt_topic_temp_humi("temp_humi", "topic Sensor/wellpump/temp_humi", mqtt_topic_temp_humi, 40);
+
+  //WiFiManager
+  //Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wifiManager;
+
+  //set config save notify callback
+  wifiManager.setSaveConfigCallback(saveConfigCallback);
+
+  //add all your parameters here
+  wifiManager.addParameter(&custom_mqtt_server);
+  wifiManager.addParameter(&custom_mqtt_port);
+  wifiManager.addParameter(&custom_mqtt_user);
+  wifiManager.addParameter(&custom_mqtt_password);
+  wifiManager.addParameter(&custom_mqtt_topic_current);
+  wifiManager.addParameter(&custom_mqtt_topic_temp_humi);
+
+  //reset settings - for testing
+  //wifiManager.resetSettings();
+
+  //sets timeout until configuration portal gets turned off
+  //useful to make it all retry or go to sleep
+  //in seconds
+  wifiManager.setTimeout(200);
+
+  if (!wifiManager.autoConnect()) {
+    Serial.println("failed to connect and hit timeout");
+    delay(3000);
+    //reset and try again, or maybe put it to deep sleep
+    ESP.reset();
+    delay(5000);
+  }
+
+  //if you get here you have connected to the WiFi
+  Serial.println("connected...to wifi yup :)");
+
+  //setup_wifi(); // THis is replaced by wifimanager above
+
+  //read updated parameters
+  strcpy(mqtt_server, custom_mqtt_server.getValue());
+  strcpy(mqtt_port, custom_mqtt_port.getValue());
+  strcpy(mqtt_user, custom_mqtt_user.getValue());
+  strcpy(mqtt_password, custom_mqtt_password.getValue());
+  strcpy(mqtt_topic_current, custom_mqtt_topic_current.getValue());
+  strcpy(mqtt_topic_temp_humi, custom_mqtt_topic_temp_humi.getValue());
+
+  //save the custom parameters to FS
+  if (shouldSaveConfig) {
+    Serial.println("saving config");
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
+    json["mqtt_server"] = mqtt_server;
+    json["mqtt_port"] = mqtt_port;
+    json["mqtt_user"] = mqtt_user;
+    json["mqtt_password"] = mqtt_password;
+    json["mqtt_topic_current"] = mqtt_topic_current;
+    json["mqtt_topic_temp_humi"] = mqtt_topic_temp_humi;
+
+
+    File configFile = SPIFFS.open("/config.json", "w");
+    if (!configFile) {
+      Serial.println("failed to open config file for writing");
+    }
+
+    json.printTo(Serial);
+    json.printTo(configFile);
+    configFile.close();
+    //end save
+  }
+
+  Serial.print("local ip:");
+  Serial.println(WiFi.localIP());
+  Serial.print("MQtt:");
+  Serial.print(mqtt_server);
+  Serial.print(mqtt_port);
+  Serial.print(mqtt_user);
+  Serial.print(mqtt_password);
+  Serial.print(mqtt_topic_current);
+  Serial.print(mqtt_topic_temp_humi);
+
+  //int portnum = atoi(mqtt_port);
   client.setServer(mqtt_server, 1883);
   client.setCallback(cbMqttRcvd);
 

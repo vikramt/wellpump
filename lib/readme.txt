@@ -148,7 +148,7 @@ void setup() {
     //end save
   }
 
-  Serial.println("local ip");
+  Serial.print("local ip:");
   Serial.println(WiFi.localIP());
 
 }
