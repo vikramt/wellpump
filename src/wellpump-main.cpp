@@ -162,11 +162,11 @@ void reconnect() {
       // Once connected, publish an announcement...
       client.publish(mqtt_server, "connected");
     //  ... and resubscribe
-      // if ( client.subscribe("Sensor/wellpump/intopic")) {
-      //   Serial.println("Subscribed.");
-      // }else {
-      //   Serial.println("Subscribe failed.");
-      // }
+      if ( client.subscribe("Sensor/wellpump/intopic")) {
+        Serial.println("Subscribed.");
+      }else {
+        Serial.println("Subscribe failed.");
+      }
 
     } else {
       Serial.print("failed, rc=");
@@ -407,13 +407,15 @@ void loop() {
     loopcounter=0;
   }
 
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+  delay(1);
+
   if (  wakeup  || publish_current ) {
 
-    if (!client.connected()) {
-      reconnect();
-    }
-    client.loop();
-    delay(10);
+
 
     if ( publish_current ) {
       snprintf (msg, 75, "On:%ld,MaxAmps:%ld", current_on,max_current_ma);
