@@ -41,7 +41,7 @@ be used with analogWrite().
 // Time between power readings, makign this under 1second main loop is about 1 sec
 #define MEASUREMENT_INTERVAL    700
 //send a publish every so often
-#define MIN_PUBLISH_SEC 300
+#define MIN_PUBLISH_SEC 30
 
 // DHT11 settings and instantiate the sensor
 int pinDHT11 = D3;
@@ -60,10 +60,11 @@ char mqtt_port[8] = "1883";
 char mqtt_user[20]="wellpump";
 //const char* mqtt_password = "unset";
 char mqtt_password[20] = "";
-//const char* mqtt_topic_current = "Sensor/wellsensor/current";
-char mqtt_topic_current[40] = "Sensor/wellsensor/current";
-//const char* mqtt_topic_temp_humi = "Sensor/wellsensor/temp_humi";
-char mqtt_topic_temp_humi[40] = "Sensor/wellsensor/temp_humi";
+//const char* mqtt_topic_current = "Sensor/wellpump/current";
+char mqtt_topic_current[40] = "Sensor/wellpump/current";
+//const char* mqtt_topic_temp_humi = "Sensor/wellpump/temp_humi";
+char mqtt_topic_temp_humi[40] = "Sensor/wellpump/temp_humi";
+char mqtt_topic_intopic[40] = "Sensor/wellpump/intopic";
 
 
 // WifiManager stuff
@@ -160,8 +161,13 @@ void reconnect() {
       Serial.println("connected");
       // Once connected, publish an announcement...
       client.publish(mqtt_server, "connected");
-      // ... and resubscribe
-      //client.subscribe("inTopic");
+    //  ... and resubscribe
+      // if ( client.subscribe("Sensor/wellpump/intopic")) {
+      //   Serial.println("Subscribed.");
+      // }else {
+      //   Serial.println("Subscribe failed.");
+      // }
+
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -346,8 +352,8 @@ void setup() {
   Serial.print(mqtt_topic_current);
   Serial.print(mqtt_topic_temp_humi);
 
-  //int portnum = atoi(mqtt_port);
-  client.setServer(mqtt_server, 1883);
+  int portnum = atoi(mqtt_port);
+  client.setServer(mqtt_server, portnum);
   client.setCallback(cbMqttRcvd);
 
   //Waste first 100 readings and wait for current to turn on
@@ -407,9 +413,10 @@ void loop() {
       reconnect();
     }
     client.loop();
+    delay(10);
 
     if ( publish_current ) {
-      snprintf (msg, 75, "On:%ld Maxma:%ld", current_on,max_current_ma);
+      snprintf (msg, 75, "On:%ld,MaxAmps:%ld", current_on,max_current_ma);
       Serial.print("Publish message: ");
       Serial.println(msg);
       client.publish(mqtt_topic_current, msg);
@@ -419,7 +426,7 @@ void loop() {
     }
     if ( wakeup ) {
 
-      snprintf (msg, 75, "T:%ld H:%ld", temperature,humidity);
+      snprintf (msg, 75, "T:%ld,H:%ld", temperature,humidity);
       Serial.print("Publish message: ");
       Serial.println(msg);
       client.publish(mqtt_topic_temp_humi, msg);
@@ -428,6 +435,6 @@ void loop() {
     }
   }
   //delay 900 since the powerloop will take 100ms
-  delay(900);
+  delay(800);
 
 }
