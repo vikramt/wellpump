@@ -41,13 +41,14 @@ be used with analogWrite().
 // Time between power readings, makign this under 1second main loop is about 1 sec
 #define MEASUREMENT_INTERVAL    700
 //send a publish every so often
-#define MIN_PUBLISH_SEC 30
+#define MIN_PUBLISH_SEC 299
 
 // DHT11 settings and instantiate the sensor
 int pinDHT11 = D3;
 SimpleDHT11 dht11;
 
-
+static unsigned int wakeup=1;
+static  bool resetwifi=0;
 
 //wifi and mqtt connections
 const char* ssid = "";
@@ -60,11 +61,12 @@ char mqtt_port[8] = "1883";
 char mqtt_user[20]="wellpump";
 //const char* mqtt_password = "unset";
 char mqtt_password[20] = "";
-//const char* mqtt_topic_current = "Sensor/wellpump/current";
-char mqtt_topic_current[40] = "Sensor/wellpump/current";
-//const char* mqtt_topic_temp_humi = "Sensor/wellpump/temp_humi";
-char mqtt_topic_temp_humi[40] = "Sensor/wellpump/temp_humi";
-char mqtt_topic_intopic[40] = "Sensor/wellpump/intopic";
+//const char* mqtt_topic_current = "From/wellpump/current";
+char mqtt_topic_current[40] = "From/wellpump/current";
+//const char* mqtt_topic_temp_humi = "From/wellpump/temp_humi";
+char mqtt_topic_temp_humi[40] = "From/wellpump/temp_humi";
+char mqtt_topic_intopic[40] = "To/wellpump/intopic";
+char mqtt_topic_help[40] = "From/wellpump/help";
 
 
 // WifiManager stuff
@@ -127,6 +129,7 @@ void setup_wifi() {
 // Callback for mqtt message received
 //-------------------------------
 void cbMqttRcvd(char* topic, byte* payload, unsigned int length) {
+  static bool id=0;
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
@@ -135,8 +138,38 @@ void cbMqttRcvd(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
 
-  // Switch on the LED if an 1 was received as first character
-  if ((char)payload[0] == '1') {
+  if (!strncmp((char*)payload,"help",4)) {
+    char commands[]="commands are - help,restart,resetwifi,status,id";
+    Serial.println(commands);
+    client.publish(mqtt_topic_help, commands);
+    delay(10);
+
+  }
+  if (!strncmp((char*)payload,"restart",7)) {
+    Serial.println(" Restarting..");
+    delay(1000);
+    ESP.reset();
+  }
+
+  if (!strncmp((char*)payload,"resetwifi",9)) {
+    WiFiManager wifiManager;
+    wifiManager.resetSettings();
+    delay(2000);
+    Serial.println(" reset settings connect to wifi  AP..");
+    delay(1000);
+    ESP.reset();
+  }
+
+  if (!strncmp((char*)payload,"status",6)) {
+    wakeup=1;
+    Serial.println("Waking up..");
+  }
+  // switch on led with id commands
+  if (!strncmp((char*)payload,"id",2)) {
+    id=!id;
+    Serial.println("Inverting id");
+  }
+  if ( id ) {
     digitalWrite(LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
     // but actually the LED is on; this is because
     // it is acive low on the ESP-01)
@@ -162,8 +195,9 @@ void reconnect() {
       // Once connected, publish an announcement...
       client.publish(mqtt_server, "connected");
     //  ... and resubscribe
-      if ( client.subscribe("Sensor/wellpump/intopic")) {
-        Serial.println("Subscribed.");
+      if ( client.subscribe(mqtt_topic_intopic)) {
+        Serial.print("Subscribed topic:");
+        Serial.println(mqtt_topic_intopic);
       }else {
         Serial.println("Subscribe failed.");
       }
@@ -215,7 +249,7 @@ void powerMonitorLoop() {
 void setup() {
 
   int i = 0; // counter for wasting readings
-  int j = 20 ; // how many to waste
+  int j = 16 ; // how many to waste
   power.initCurrent(currentCallback, ADC_BITS, REFERENCE_VOLTAGE, CURRENT_RATIO);
   pinMode(LED, OUTPUT);   // LED pin as output.
   EEPROM.begin(512);
@@ -271,8 +305,8 @@ void setup() {
   WiFiManagerParameter custom_mqtt_port("port", "mqtt port", mqtt_port, 8);
   WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqtt_user, 20);
   WiFiManagerParameter custom_mqtt_password("password", "enter mqtt password", mqtt_password, 20);
-  WiFiManagerParameter custom_mqtt_topic_current("current", "topic Sensor/wellpump/current", mqtt_topic_current, 40);
-  WiFiManagerParameter custom_mqtt_topic_temp_humi("temp_humi", "topic Sensor/wellpump/temp_humi", mqtt_topic_temp_humi, 40);
+  WiFiManagerParameter custom_mqtt_topic_current("current", "topic From/wellpump/current", mqtt_topic_current, 40);
+  WiFiManagerParameter custom_mqtt_topic_temp_humi("temp_humi", "topic From/wellpump/temp_humi", mqtt_topic_temp_humi, 40);
 
   //WiFiManager
   //Local intialization. Once its business is done, there is no need to keep it around
@@ -290,7 +324,11 @@ void setup() {
   wifiManager.addParameter(&custom_mqtt_topic_temp_humi);
 
   //reset settings - for testing
-  //wifiManager.resetSettings();
+  if ( resetwifi){
+    wifiManager.resetSettings();
+    resetwifi=0;
+  }
+
 
   //sets timeout until configuration portal gets turned off
   //useful to make it all retry or go to sleep
@@ -359,6 +397,7 @@ void setup() {
   //Waste first 100 readings and wait for current to turn on
   Serial.println("Calibrating  DC offset and  sensors  ");
   while (i < j ) {
+    digitalWrite(LED, LOW);
     i++;
     powerMonitorLoop();
     //every other time also read dht11
@@ -366,7 +405,9 @@ void setup() {
       get_temperature_humidity();
     }
     Serial.print(":");Serial.print((String)I);
-    delay(900);
+    delay(400);
+    digitalWrite(LED, HIGH);
+    delay(400);
   }
 
 }
@@ -377,7 +418,7 @@ void loop() {
 
   // This is for counting the loops in 1 sec intervals
   static unsigned int loopcounter=MIN_PUBLISH_SEC;
-  static unsigned int wakeup=1;
+
   static unsigned int publish_current=0;
   static unsigned long current_on=0;
   static unsigned long max_current_ma=0;
