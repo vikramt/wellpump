@@ -19,6 +19,13 @@ be used with analogWrite().
 
 #define LED     D0        // Led in NodeMCU at pin GPIO16 (D0).
 
+// Measured calibrations
+// this one is delay at the end of loop so its about 1 sec per loop
+// to count the current on time in loops i.e seconds
+#define LOOPdelay 880
+//this is multiplier to make the MaxAmps read
+// what the multimeter measures maybe due to burden resister via voltage divider
+#define CurrentCalibration 1.6
 
 // LED breathing definitions
 #define BRIGHT    350     //max led intensity (1-500)
@@ -429,14 +436,14 @@ void loop() {
   //read power and convert I into milliamps cast into integer every loop
   powerMonitorLoop();
   milliamps=I*1000;
-  //count how long current is on if its greater than 2 amps and what the max is
-  if ( milliamps > 1000 ){
+  //count how long current is on if its greater than 1 amps and what the max is
+  if ( milliamps > 700 ){
     current_on++; // current on time in seconds
     if ( milliamps > max_current_ma ) {
       max_current_ma = milliamps;
     }
   } else {
-    if ( current_on) {
+    if ( current_on > 1 ) {
       publish_current=1;
 
     }
@@ -459,6 +466,10 @@ void loop() {
 
 
     if ( publish_current ) {
+      //remove the last 1 second for the loop
+      current_on--;
+      //use the calibration from the define
+      max_current_ma = max_current_ma*CurrentCalibration ;
       snprintf (msg, 75, "On:%ld,MaxAmps:%ld", current_on,max_current_ma);
       Serial.print("Publish message: ");
       Serial.println(msg);
@@ -478,6 +489,6 @@ void loop() {
     }
   }
   //delay 900 since the powerloop will take 100ms
-  delay(800);
+  delay(LOOPdelay);
 
 }
