@@ -1,8 +1,8 @@
 /*
 Using NodeMCU Development Kit V1.0
-Going beyond Blink sketch to see the blue LED breathing.
-A PWM modulation is made in software because GPIO16 can't
-be used with analogWrite().
+Wellpump sensor - measure current via a non-intrusive current sensor
+for 0-30A and outputs 0-1V .
+Added DHT11 for temp and humidity near well pump
 */
 
 #include <FS.h>
